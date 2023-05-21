@@ -112,8 +112,12 @@ def filter(source, color):
 def index(color):
     return np.column_stack(np.where(truth_table(get_base_table(color))))
 
+def index_separate(color):
+    return np.where(truth_table(get_base_table(color)))
+
 def interpolate_red(source):
     indices = index('R')
+    # padding to solve index out of bound issue with np.where
     source_copy = np.pad(source, (0, 2), mode='constant')
     t_cond = indices[:, 0] >= 2
     l_cond = indices[:, 1] >= 2
@@ -128,8 +132,10 @@ def interpolate_red(source):
     source.put(np.ravel_multi_index(indices.T, source.shape), total // count)
 
 def interpolate_q(source):
-    f_row, f_col = np.where(truth_table(get_base_table('f')))
-    b_row, b_col = np.where(truth_table(get_base_table('b')))
+    # f_row, f_col = np.where(truth_table(get_base_table('f')))
+    # b_row, b_col = np.where(truth_table(get_base_table('b')))
+    f_row, f_col = index_separate('f')
+    b_row, b_col = index_separate('b')
 
     f_l = np.zeros(f_row.shape)
     f_r = np.zeros(f_col.shape)
@@ -149,6 +155,7 @@ def interpolate_q(source):
     b_l[b_l_valid] = source[b_row[b_l_valid] - 1, b_col[b_l_valid] - 1]
     b_r[b_r_valid] = source[b_row[b_r_valid] + 1, b_col[b_r_valid] + 1]
 
+    # edge case when there's no reds (don't know how to incorporate it to np.where)
     f_sum = f_l + f_r
     f_count = (f_l != 0).astype(int) + (f_r != 0).astype(int)
     f_count[f_count == 0] = 1
