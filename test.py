@@ -28,31 +28,69 @@ raw_data = np.fromfile(
             dtype='uint16', 
             sep='').reshape(RESOLUTION)
 
+# r_indices = (
+#     (0, 2), (2, 0)
+# )
+        
+# g_indices = (
+#     (0, 1), (0, 3), 
+#     (1, 0), (1, 2), 
+#     (2, 1), (2, 3), 
+#     (3, 0), (3, 2)
+# )
+
+# b_indices = (
+#     (0, 2), (0, 2)
+# )
+
+# q_indices = (
+#     (1, 1), (1, 3), 
+#     (3, 1), (3, 3)
+# )
+
+# forward = (
+#     (1, 3), (1, 3)
+# )
+
+# backward = (
+#     (1, 3), (3, 1)
+# )
+
 r_indices = (
+    # rows, cols
     (0, 2), (2, 0)
 )
-        
+
 g_indices = (
-    (0, 1), (0, 3), 
-    (1, 0), (1, 2), 
-    (2, 1), (2, 3), 
-    (3, 0), (3, 2)
+    (0, 0, 1, 1, 2, 2, 3, 3),
+    (1, 3, 0, 2, 1, 3, 0, 2)
 )
 
 b_indices = (
-    (0, 0), (2, 2)
+    (0, 2), (0, 2)
 )
 
 q_indices = (
-    (1, 1), (1, 3), 
-    (3, 1), (3, 3)
+    (1, 1, 3, 3), (1, 3, 1, 3)
 )
+
+forward = (
+    (1, 3), (1, 3)
+)
+
+backward = (
+    (1, 3), (3, 1)
+)
+
+
 
 KERNEL = {
     "R": r_indices,
     "G": g_indices,
     "B": b_indices,
-    "Q": q_indices
+    "Q": q_indices,
+    "f": forward,
+    "b": backward
 }
 
 def get_base_table(color):
@@ -77,7 +115,6 @@ def index(color):
 def interpolate_red(source):
     indices = index('R')
     source_copy = np.pad(source, (0, 2), mode='constant')
-    template = np.zeros(source.shape)
     t_cond = indices[:, 0] >= 2
     l_cond = indices[:, 1] >= 2
     d_cond = indices[:, 0] < source.shape[0] - 2
@@ -88,8 +125,45 @@ def interpolate_red(source):
     r = np.where(r_cond, source_copy[indices[:, 0], indices[:, 1] + 2], 0)
     total = t + l  + d  + r
     count = t_cond.astype(int) + l_cond.astype(int) + d_cond.astype(int) + r_cond.astype(int)
-    template.put(np.ravel_multi_index(indices.T, source.shape), total // count)
-    return template
+    source.put(np.ravel_multi_index(indices.T, source.shape), total // count)
+
+def interpolate_q(source):
+    f_row, f_col = np.where(truth_table(get_base_table('f')))
+    b_row, b_col = np.where(truth_table(get_base_table('b')))
+
+    f_l = np.zeros(f_row.shape)
+    f_r = np.zeros(f_col.shape)
+
+    b_l = np.zeros(b_row.shape)
+    b_r = np.zeros(b_col.shape)
+
+    f_l_valid = (f_row - 1 >= 0) & (f_col + 1 < source.shape[1])
+    f_r_valid = (f_row + 1 < source.shape[0]) & (f_col - 1 >= 0)
+
+    b_l_valid = (b_row - 1 >= 0) & (b_col - 1 >= 0)
+    b_r_valid = (b_row + 1 < source.shape[0]) & (b_col + 1 < source.shape[1])
+
+    f_l[f_l_valid] = source[f_row[f_l_valid] - 1, f_col[f_l_valid] + 1]
+    f_r[f_r_valid] = source[f_row[f_r_valid] + 1, f_col[f_r_valid] - 1]
+
+    b_l[b_l_valid] = source[b_row[b_l_valid] - 1, b_col[b_l_valid] - 1]
+    b_r[b_r_valid] = source[b_row[b_r_valid] + 1, b_col[b_r_valid] + 1]
+
+    f_sum = f_l + f_r
+    f_count = (f_l != 0).astype(int) + (f_r != 0).astype(int)
+    f_count[f_count == 0] = 1
+    f = f_sum // f_count
+    f[f == 0] = source[-1, -1]
+
+    b_sum = b_l + b_r
+    b_count = (b_l != 0).astype(int) + (b_r != 0).astype(int)
+    b_count[b_count == 0] = 1
+    b = b_sum // b_count
+    b[b == 0] = source[-1, -1]
+
+    source[f_row, f_col] = f
+    source[b_row, b_col] = b
+
 
 def save_to_txt(name, obj):
     output_path = os.path.join(OUTPUT_DIR, name)
@@ -98,8 +172,24 @@ def save_to_txt(name, obj):
 start = time.time()
 # filter(raw_data, 'R')
 # print(index('R'))
-interpolate_red(raw_data)
+# interpolate_red(raw_data)
 # print(interpolate_red(raw_data))
+# print(interpolate_q(raw_data))
+# print(raw_data)
+# interpolate_red(raw_data)
+interpolate_q(raw_data)
+# print(filter(raw_data, 'Q'))
+# print(raw_data)
+
+save_to_txt('fuck_you_q.txt', filter(raw_data, 'Q'))
+
+# print(get_base_table('f').astype(int))
+# print(get_base_table('b').astype(int))
+# print(get_base_table('R').astype(int))
+# print(get_base_table('G').astype(int))
+# print(get_base_table('B').astype(int))
+# print(get_base_table('Q').astype(int))
+# save_to_txt('source.txt', raw_data)
 # save_to_txt('fuck_me.txt', interpolate_red(raw_data))
 end = time.time()
 print(end - start)
