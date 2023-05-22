@@ -37,24 +37,48 @@ backward = (
     (1, 3), (3, 1)
 )
 
+new_b_indices = (
+    (0), (0)
+)
+
+new_g_indices = (
+    (0, 1), (1, 0)
+)
+
+new_r_indices = (
+    (1), (1)
+)
+
 class FGP(BasicModule):
     def __init__(self, cfg):
         super().__init__(cfg)
         self.RESOLUTION = (self.cfg.hardware.raw_height, self.cfg.hardware.raw_width)
         self.KERNEL_SIZE = (4, 4)
+        self.NEW_KERNEL_SIZE = (2, 2)
         self.KERNEL = {
             "R": r_indices,
             "G": g_indices,
             "B": b_indices,
             "Q": q_indices,
             "f": forward,
-            "b": backward
+            "b": backward,
+            "n_r": new_r_indices,
+            "n_g": new_g_indices,
+            "n_b": new_b_indices
         }
 
     def execute(self, data):
         source = data['bayer'].astype(np.int32)
+        q_source = self.filter(source, "Q")
         self.interpolate(source)
+        self.minus_q(source, q_source, 0.5, 0.2, 0.3)
         data['bayer'] = source.astype(np.uint16)
+    
+    def get_new_base_table(self, color):
+        indices = self.KERNEL[color]
+        color_filter = np.zeros(self.NEW_KERNEL_SIZE, dtype=bool)
+        color_filter[indices] = True
+        return color_filter
 
     def get_base_table(self, color):
         indices = self.KERNEL[color]
@@ -62,6 +86,12 @@ class FGP(BasicModule):
         color_filter[indices] = True
         return color_filter
     
+    def new_truth_table(self, block):
+        v_repetitions = math.floor(self.RESOLUTION[0] / self.NEW_KERNEL_SIZE[0])
+        h_repetitions = math.floor(self.RESOLUTION[1] / self.NEW_KERNEL_SIZE[1])
+        truth_table = np.tile(block, (v_repetitions, h_repetitions))
+        return truth_table
+
     def truth_table(self, block):
         v_repetitions = math.floor(self.RESOLUTION[0] / self.KERNEL_SIZE[0])
         h_repetitions = math.floor(self.RESOLUTION[1] / self.KERNEL_SIZE[1])
@@ -124,11 +154,22 @@ class FGP(BasicModule):
 
         source.put(np.ravel_multi_index(f_indices.T, source.shape), f)
         source.put(np.ravel_multi_index(b_indices.T, source.shape), b_sum // b_count)
-        
+
     def interpolate(self, source):
         self.interpolate_q(source)
         self.interpolate_red(source)
-        
+
+    def minus_q(self, source, q_source, r_const, g_const, b_const):
+        r_filter = self.new_truth_table(self.get_new_base_table("n_r"))
+        g_filter = self.new_truth_table(self.get_new_base_table("n_g"))
+        b_filter = self.new_truth_table(self.get_new_base_table("n_b"))
+        r_q = r_const * q_source
+        g_q = g_const * q_source
+        b_q = b_const * q_source
+        r = np.where(r_filter, r_q.astype(np.uint32), 0)
+        g = np.where(g_filter, g_q.astype(np.uint32), 0)
+        b = np.where(b_filter, b_q.astype(np.uint32), 0)
+        source -= (r + g + b)
 
 # OUTPUT_DIR = './output'
 # os.makedirs(OUTPUT_DIR, exist_ok=True)
