@@ -1,5 +1,3 @@
-import os
-import time
 import math
 import numpy as np
 from .basic_module import BasicModule
@@ -69,11 +67,14 @@ class FGP(BasicModule):
 
     def execute(self, data):
         source = data['bayer'].astype(np.int32)
+        # gets only the IR without the zeroes.
         q_source = source[1::2, 1::2]
         q_filled = self.upsample(q_source, 2, 2)
         self.interpolate(source)
         self.minus_q(source, q_filled, 0.717, 0.22, 0.375)
         data['bayer'] = source.astype(np.uint16)
+        data['grayscale'] = q_filled
+
 
     def upsample(self, source, x, y):
         row, col = source.shape
@@ -177,3 +178,8 @@ class FGP(BasicModule):
         g = np.where(g_filter, g_q.astype(np.uint32), 0)
         b = np.where(b_filter, b_q.astype(np.uint32), 0)
         source -= (r + g + b)
+
+    # def guided_upsample(self, source, reference, standard_deviation=1.0):
+    #     smooth_guide = gaussian_filter(reference, standard_deviation)
+    #     some_details = source - smooth_guide
+    #     return source + some_details

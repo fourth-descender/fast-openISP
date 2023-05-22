@@ -13,6 +13,8 @@ OUTPUT_DIR = './output'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def demo_119010501():
+    NAME = 'fgp'
+    EXTENSION = '.png'
     cfg = Config('configs/RGB_IR_dim.yaml')
     pipeline = Pipeline(cfg)
 
@@ -21,9 +23,16 @@ def demo_119010501():
     bayer = bayer.reshape((cfg.hardware.raw_height, cfg.hardware.raw_width))
 
     data, _ = pipeline.execute(bayer)
-    output_path = op.join(OUTPUT_DIR, 'test.png')
+    output_path = op.join(OUTPUT_DIR, NAME + EXTENSION)
     output = cv2.cvtColor(data['output'], cv2.COLOR_RGB2BGR)
     cv2.imwrite(output_path, output)
+
+    from modules.helpers import guided_upsample
+    output_path = op.join(OUTPUT_DIR, NAME + '_grayscale' + EXTENSION)
+    src, ref = data['grayscale'], data['bayer']
+    cv2.imwrite(output_path, guided_upsample(src, ref))
+
+
 
 
 def demo_test_raw():

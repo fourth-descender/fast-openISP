@@ -214,3 +214,9 @@ def bilateral_filter(array, spatial_weights, intensity_weights_lut, right_shift=
     bf_array = (bf_array / weights).astype(array.dtype)
 
     return bf_array
+
+from scipy.ndimage import gaussian_filter
+def guided_upsample(source, reference, standard_deviation=1.0):
+    smooth_guide = gaussian_filter(reference, standard_deviation)
+    some_details = smooth_guide - source
+    return source + some_details
