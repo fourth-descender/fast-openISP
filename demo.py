@@ -13,10 +13,10 @@ OUTPUT_DIR = './output'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def demo_119010501():
-    cfg = Config('configs/119010501.yaml')
+    cfg = Config('configs/RGB_IR_dim.yaml')
     pipeline = Pipeline(cfg)
 
-    raw_path = 'raw/sample.raw'
+    raw_path = 'raw/Dim_color.raw'
     bayer = np.fromfile(raw_path, dtype='uint16', sep='')
     bayer = bayer.reshape((cfg.hardware.raw_height, cfg.hardware.raw_width))
 

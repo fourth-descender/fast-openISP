@@ -69,10 +69,17 @@ class FGP(BasicModule):
 
     def execute(self, data):
         source = data['bayer'].astype(np.int32)
-        q_source = self.filter(source, "Q")
+        q_source = source[1::2, 1::2]
+        q_filled = self.upsample(q_source, 2, 2)
         self.interpolate(source)
-        self.minus_q(source, q_source, 0.5, 0.2, 0.3)
+        self.minus_q(source, q_filled, 0.717, 0.22, 0.375)
         data['bayer'] = source.astype(np.uint16)
+
+    def upsample(self, source, x, y):
+        row, col = source.shape
+        row_stride, col_stride = source.strides
+        return np.lib.stride_tricks.as_strided(source, (row, x, col, y), 
+                                    (row_stride, 0, col_stride, 0)).reshape(row * x, col * y)
     
     def get_new_base_table(self, color):
         indices = self.KERNEL[color]
@@ -170,26 +177,3 @@ class FGP(BasicModule):
         g = np.where(g_filter, g_q.astype(np.uint32), 0)
         b = np.where(b_filter, b_q.astype(np.uint32), 0)
         source -= (r + g + b)
-
-# OUTPUT_DIR = './output'
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# RESOLUTION = (1944, 2592)
-# file_location = 'raw/sample.raw'
-# raw_data = np.fromfile(
-#             file_location, 
-#             dtype='uint16', 
-#             sep='').reshape(RESOLUTION)
-
-
-
-
-# def save_to_txt(name, obj):
-#     output_path = os.path.join(OUTPUT_DIR, name)
-#     np.savetxt(output_path, obj, fmt='%d')
-
-# start = time.time()
-# interpolate(raw_data)
-# save_to_txt('fuck_you_interpolation.txt', raw_data)
-# end = time.time()
-# print(end - start)
