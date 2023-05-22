@@ -95,46 +95,36 @@ class FGP(BasicModule):
         source.put(np.ravel_multi_index(indices.T, source.shape), total // count)
     
     def interpolate_q(self, source):
-        # f_row, f_col = np.where(truth_table(get_base_table('f')))
-        # b_row, b_col = np.where(truth_table(get_base_table('b')))
-        f_row, f_col = self.index_separate('f')
-        b_row, b_col = self.index_separate('b')
-    
-        f_l = np.zeros(f_row.shape)
-        f_r = np.zeros(f_col.shape)
-    
-        b_l = np.zeros(b_row.shape)
-        b_r = np.zeros(b_col.shape)
-    
-        f_l_valid = (f_row - 1 >= 0) & (f_col + 1 < source.shape[1])
-        f_r_valid = (f_row + 1 < source.shape[0]) & (f_col - 1 >= 0)
-    
-        b_l_valid = (b_row - 1 >= 0) & (b_col - 1 >= 0)
-        b_r_valid = (b_row + 1 < source.shape[0]) & (b_col + 1 < source.shape[1])
-    
-        f_l[f_l_valid] = source[f_row[f_l_valid] - 1, f_col[f_l_valid] + 1]
-        f_r[f_r_valid] = source[f_row[f_r_valid] + 1, f_col[f_r_valid] - 1]
-    
-        b_l[b_l_valid] = source[b_row[b_l_valid] - 1, b_col[b_l_valid] - 1]
-        b_r[b_r_valid] = source[b_row[b_r_valid] + 1, b_col[b_r_valid] + 1]
-    
-        # edge case when there's no reds (don't know how to incorporate it to np.where)
+        f_indices = self.index('f')
+        b_indices = self.index('b')
+        # # padding to solve index out of bound issue with np.where
+
+        source_copy = np.pad(source, (0, 1), mode='constant')
+
+        f_l_cond = (f_indices[:, 0] >= 1) & (f_indices[:, 1] < source.shape[1] - 1)
+        f_r_cond = (f_indices[:, 0] < source.shape[0] - 1) & (f_indices[:, 1] >= 1)
+        b_l_cond = (b_indices[:, 0] >= 1) & (b_indices[:, 1] >= 1)
+        b_r_cond = (b_indices[:, 0] < source.shape[0] - 1) & (b_indices[:, 1] < source.shape[1] - 1)
+
+        f_l = np.where(f_l_cond, source_copy[f_indices[:, 0] - 1, f_indices[:, 1] + 1], 0)
+        f_r = np.where(f_r_cond, source_copy[f_indices[:, 0] + 1, f_indices[:, 1] - 1], 0)
+        b_l = np.where(b_l_cond, source_copy[b_indices[:, 0] - 1, b_indices[:, 1] - 1], 0)
+        b_r = np.where(b_r_cond, source_copy[b_indices[:, 0] + 1, b_indices[:, 1] + 1], 0)
+
         f_sum = f_l + f_r
-        f_count = (f_l != 0).astype(int) + (f_r != 0).astype(int)
+        f_count = f_l_cond.astype(int) + f_r_cond.astype(int)
+
+        # bottom right IR (forward interpolation) has no reds to use.
         f_count[f_count == 0] = 1
         f = f_sum // f_count
         f[f == 0] = source[-1, -1]
-    
+
         b_sum = b_l + b_r
-        b_count = (b_l != 0).astype(int) + (b_r != 0).astype(int)
-        b_count[b_count == 0] = 1
-        b = b_sum // b_count
-        b[b == 0] = source[-1, -1]
-    
-        source[f_row, f_col] = f
-        source[b_row, b_col] = b
-    
-    
+        b_count = b_l_cond.astype(int) + b_r_cond.astype(int)
+
+        source.put(np.ravel_multi_index(f_indices.T, source.shape), f)
+        source.put(np.ravel_multi_index(b_indices.T, source.shape), b_sum // b_count)
+        
     def interpolate(self, source):
         self.interpolate_q(source)
         self.interpolate_red(source)
