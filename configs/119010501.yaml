@@ -1,5 +1,5 @@
 module_enable_status:                 # do NOT modify modules order
-  dpc: True
+  dpc: False
   blc: True
   aaf: True
   fgp: True
@@ -31,28 +31,36 @@ dpc:
   diff_threshold: 30
 
 blc:
-  bl_r: 0                             # a subtractive value, not additive!
+  bl_r: -9                    # a subtractive value, not additive!
   bl_gr: 0
   bl_gb: 0
   bl_b: 0
   alpha: 0                            # x1024
-  beta: 0                             # x1024
+  beta: 10                             # x1024
 
 aaf: ~
 
+fgp:
+  r_const: 0.64
+  g_const: 0.42
+  b_const: 0.44
+
 awb:
-  r_gain: &r_gain 1860                # x1024
-  gr_gain: 756                       # x756
-  gb_gain: 756                       # x756
-  b_gain: &b_gain 1280                # x1024
+  r_gain: &r_gain 2140                # x1024
+  gr_gain: 996                        # x1024
+  gb_gain: 996                       # x1024
+  b_gain: &b_gain 1428                # x1024
 
 cnf:
-  diff_threshold: 0
+  diff_threshold: 5
   r_gain: *r_gain                     # x1024
   b_gain: *b_gain                     # x1024
 
+rgbir: ~
+
 cfa:
   mode: malvar
+  #mode: bilinear
 
 ccm:
   ccm:
@@ -62,7 +70,7 @@ ccm:
 
 gac:
   gain: 256                           # x256
-  gamma: 0.8
+  gamma: 0.6
 
 csc: ~
 
@@ -80,7 +88,7 @@ ceh:
   clip_limit: 0.01
 
 eeh:
-  edge_gain: 384                      # x256
+  edge_gain: 128                      # x256
   flat_threshold: 4                   # delta <= flat_threshold: set delta to 0
   edge_threshold: 8                   # delta > edge_threshold: increase delta by edge_gain
   delta_threshold: 64
@@ -91,11 +99,11 @@ fcs:
 
 hsc:
   hue_offset: 0                       # in degree
-  saturation_gain: 256                # x256
+  saturation_gain: 512                # x256
 
 bcc:
-  brightness_offset: 0
-  contrast_gain: 256                  # x256
+  brightness_offset: 16
+  contrast_gain: 512                  # x256
 
 scl:
   width: 1920

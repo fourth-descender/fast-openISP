@@ -15,10 +15,10 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 def demo_119010501():
     NAME = 'fgp'
     EXTENSION = '.png'
-    cfg = Config('configs/RGB_IR_dim.yaml')
+    cfg = Config('configs/119010501.yaml')
     pipeline = Pipeline(cfg)
 
-    raw_path = 'raw/Dim_color.raw'
+    raw_path = 'raw/2_1.raw'
     bayer = np.fromfile(raw_path, dtype='uint16', sep='')
     bayer = bayer.reshape((cfg.hardware.raw_height, cfg.hardware.raw_width))
 

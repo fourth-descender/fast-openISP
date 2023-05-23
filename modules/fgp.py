@@ -2,6 +2,7 @@ import math
 import numpy as np
 from .basic_module import BasicModule
 
+# makes sure numpy prints integers.
 np.set_printoptions(
     suppress=True, 
     formatter={
@@ -64,6 +65,9 @@ class FGP(BasicModule):
             "n_g": new_g_indices,
             "n_b": new_b_indices
         }
+        self.r_const = self.params.r_const
+        self.g_const = self.params.g_const
+        self.b_const = self.params.b_const
 
     def execute(self, data):
         source = data['bayer'].astype(np.int32)
@@ -74,7 +78,7 @@ class FGP(BasicModule):
         # transforms IRs to red, then reds to blue.
         self.interpolate(source)
         # subtract each 2x2 BGGR block with the corresponding IR value.
-        self.minus_q(source, q_filled, 0.717, 0.22, 0.375)
+        self.minus_q(source, q_filled, self.r_const, self.g_const, self.b_const)
         # stores RGB and IR values for future use.
         data['bayer'] = source.astype(np.uint16)
         data['grayscale'] = q_filled
@@ -180,6 +184,7 @@ class FGP(BasicModule):
         source.put(np.ravel_multi_index(b_indices.T, source.shape), b_sum // b_count)
 
     def interpolate(self, source):
+        # IR -> R first, then R -> B.
         self.interpolate_q(source)
         self.interpolate_red(source)
 
