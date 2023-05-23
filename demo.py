@@ -29,6 +29,7 @@ def demo_119010501():
 
     from modules.helpers import guided_upsample
     output_path = op.join(OUTPUT_DIR, NAME + '_grayscale' + EXTENSION)
+    
     src, ref = data['grayscale'], data['bayer']
     cv2.imwrite(output_path, guided_upsample(src, ref))
 

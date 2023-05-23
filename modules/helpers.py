@@ -217,6 +217,11 @@ def bilateral_filter(array, spatial_weights, intensity_weights_lut, right_shift=
 
 from scipy.ndimage import gaussian_filter
 def guided_upsample(source, reference, standard_deviation=1.0):
+    # smooths out source image by removing (well, reducing) high frequency noise.
+    # change standard deviation to control the amount of smoothing/blurring.
     smooth_guide = gaussian_filter(reference, standard_deviation)
+    # removes the smoothed source from the reference image.
+    # in other words, keep only the high frequency noise that was removed in the
+    # blurring process earlier to add back to source image for guided upsampling.
     some_details = smooth_guide - source
     return source + some_details
