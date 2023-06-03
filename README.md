@@ -80,15 +80,21 @@ The implementation is fairly simple. First, smooth out the reference image using
 ```
 Note that for the code snippet above, source refers to the upsampled IR array.
 
-### Usage
-Simply run the `demo.py` file.
+### Running the Demo
+To run the `demo.py` file, do the following two steps:
+
+1. Install the dependencies.
 ```bash
-python demo.py
+    pip install -r requirements.txt
 ```
-You can also change the parameters used by editing the `.yaml` file.
+2. Run the python file.
+```bash
+    python demo.py
+```
+Note that you can change the parameters by editing the `.yaml` file.
 
 ### SAMPLE RESULTS
-Below are sample images generated using a custom config file.
+These are sample images generated using a custom config file.
 
 | ![1_1_color](FGP/fgp_1_1.png) | ![1_1_grayscale](FGP/fgp_grayscale_1_1.png) |
 |:---:|:---:|
