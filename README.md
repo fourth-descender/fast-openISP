@@ -1,124 +1,100 @@
-# Fast Open Image Signal Processor (fast-openISP)
+EXTENDING FAST-OPENISP TO RGB-IR SENSORS
 
-As told by its name, fast-openISP is a **faster** (and bugs-fixed) re-implementation of
-the [openISP](https://github.com/cruxopen/openISP) project.
+Jose Andreas - 119010501
 
-Compared to C-style code in the official openISP repo, fast-openISP uses pure matrix implementations based on Numpy, and
-increases processing speed **over 300 times**.
+## Project Overview
+"The project adds a new module FGP, short for 'FINAL GRAPHICS PROJECT,' which allows fast-openISP to handle RGB-IR (Red-Green-Blue-Infrared) image data."
 
-Here is the running time in my Ryzen 7 1700 8-core 3.00GHz machine with the 1920x1080 input Bayer array:
+>"Special thanks to the creator of the fast-openISP, [Qiu Jueqin](https://github.com/QiuJueqin). The library served as the foundation for the module enabling the handling of RGB-IR image data."
 
-|Module             |openISP |fast-openISP|
-|:-----------------:|:------:|:----------:|
-|DPC                |20.57s  |0.29s       |
-|BLC                |11.75s  |0.02s       |
-|AAF                |16.87s  |0.08s       |
-|AWB                |7.54s   |0.02s       |
-|CNF                |73.99s  |0.25s       |
-|CFA                |40.71s  |0.20s       |
-|CCM                |56.85s  |0.06s       |
-|GAC                |25.71s  |0.07s       |
-|CSC                |60.32s  |0.06s       |
-|NLM                |1600.95s|5.37s       |
-|BNF                |801.24s |0.75s       |
-|CEH<sup>*</sup>    |-       |0.14s       |
-|EEH                |68.60s  |0.24s       |
-|FCS                |25.07s  |0.08s       |
-|HSC                |56.34s  |0.07s       |
-|BBC                |27.92s  |0.03s       |
-|End-to-end pipeline|2894.41s|7.82s       |
+## FGP module
+The module references this paper [here](**[https://ieeexplore.ieee.org/document/10043554](https://ieeexplore.ieee.org/document/10043554 "https://ieeexplore.ieee.org/document/10043554")**). It changes the RGB-IR image data into a format compatible with the existing fast-openISP pipeline and lets it handle the rest. Additionaly, it also performs guided-upsampling on the IR values to generate a grayscale image.
 
-> <sup>*</sup> CEH module is not included in the official openISP pipeline.
+### BGGR Conversion
+The transformation consists of three steps. First, it replaces all the IR values with the average of the nonzero surrounding red values, provided that the surrounding reds in question are one unit away; otherwise, the IR value remains unchanged. Next, it replaces all the R values with the average of the nonzero blues that are two units away. Finally, it retrieves the original IR values, performs upsampling, and subtracts them from the modified image to balance it.
 
-
-# Usage
-
-Clone this repo and run
-
+#### IR to R Conversion Implementation Strategy
+The IRs follow a specific pattern. Half of the IRs have reds as their bottom-left and top-right neighbors, leaving the opposite for the other half. So, the strategy is to first build numpy boolean filters (or mask if you will) with the shape of the halves and use numpy.where to get numpy array of neighboring red values or zeroes, with each filter representing a position of the reds, be it top-left, top-right, bottom-left, or bottom-right. 
+```python
+# gets the array for bottom-left red neighbors.
+f_l = np.where(f_l_cond, source_copy[f_indices[:, 0] - 1, 
+									 # true, false values
+									 f_indices[:, 1] + 1], 0)
 ```
+After, use the four arrays to calculate the average of the nonzero neigbors and use numpy.put to put them back in the original array in their respective positions.
+```python
+		# sums two of the arrays and take the average of the nonzero neighbors.
+        f_sum = f_l + f_r
+        f_count = f_l_cond.astype(int) + f_r_cond.astype(int)
+
+		# updates the source image.
+		source.put(np.ravel_multi_index(f_indices.T, source.shape), f)
+```
+
+##### Handling IR with no R neigbours
+Due to the pattern it follows, there is only on IR without a red neighbour. So, the value for that particular position is set to be the value of the original IR.
+```python
+		f[f == 0] = source[-1, -1]
+```
+Here,  the value is updated before the array mentioned earlier gets inserted into the image.
+
+##### Complications
+numpy.where ran into some out of bounds index issue at or near the edges of the image data. So, numpy.pad was used to resolve it.
+```python
+		 # padding to solve index out of bound issue with np.where
+        source_copy = np.pad(source, (0, 1), mode='constant')
+```
+
+#### R to B Conversion Implementation Strategy
+The conversion uses the same strategy as the IR-to-R conversion strategy. It creates boolean filters the size of the number of reds and populates them with the blue values of the corresponding position, averages it, and puts it back to the source using numpy.where and numpy.put.
+
+#### IR Subtraction
+In some cases, the infrared channel may introduce color imbalances or distortions in the RGB image. So, to achieve better color fidelity in the resulting RGB image, we subtract the IR channel multiplied by a constant value to correct these imbalances.
+
+##### Implementation Strategy
+The general idea is to obtain all the values of the IR by index slicing and then perform upsampling by a factor of two to match the shape of the image. After, create three copies and multiply each `numpy.ndarray` by their respective constants, filter using `numpy.where`, and subtract from source.
+```python
+		# boolean filter for red.
+		r_filter = self.new_truth_table(self.get_new_base_table("n_r"))
+
+		# multiplying by constant; q_source is the upsampled IR array.
+		r_q = r_const * q_source
+
+		# filter using numpy.where.
+		r = np.where(r_filter, r_q.astype(np.uint32), 0)
+		
+		# update source image.
+		source -= r
+```
+
+#### Guided Upsampling
+Guided upsampling is a technique used to increase the resolution or size of an image while preserving its details and reducing artifacts. The goal of guided upsampling is to generate a high-quality, visually pleasing image that appears as if it was originally captured at the higher resolution. 
+
+##### Implementation Strategy
+The implementation is fairly simple. First, smooth out the reference image using a gaussian filter from `scipy.ndimage`. After, get the high-frequency noise back by subtracting the smoothed out guide image with the upsampled IR image. Lastly, add those high frequency noise back to the upsampled source image.
+```python
+	# smooths out source image by removing (well, reducing) high frequency noise.
+    # change standard deviation to control the amount of smoothing/blurring.
+    smooth_guide = gaussian_filter(reference, standard_deviation)
+    # removes the smoothed source from the reference image.
+    # in other words, keep only the high frequency noise that was removed in the
+    # blurring process earlier to add back to source image for guided upsampling.
+    some_details = smooth_guide - source
+    return source + some_details
+```
+Note that for the code snippet above, source refers to the upsampled IR array.
+
+### Usage
+Simply run the `demo.py` file.
+```bash
 python demo.py
 ```
+You can also change the parameters used by editing the `.yaml` file.
 
-The ISP outputs will be saved to `./output` directory.
+### SAMPLE RESULTS
+Below are sample images generated using a custom config file.
 
-The only required package for pipeline execution is `numpy`. `opencv-python` and `scikit-image` are required only for 
-data IO.
-
-# Algorithms
-
-All modules in fast-openISP
-reproduce [processing algorithms](https://github.com/cruxopen/openISP/blob/master/docs/Image%20Signal%20Processor.pdf)
-in openISP, except for EEH and BCC modules. In addition, a CEH (contrast enhancement) module with [CLAHE](https://en.wikipedia.org/wiki/Adaptive_histogram_equalization#Contrast_Limited_AHE) is 
-added into the fast-openISP pipeline.
-
-### EEH (edge enhancement)
-
-The official openISP uses
-an [asymmetric kernel](https://github.com/cruxopen/openISP/blob/49de48282e66bdb283779394a23c9c0d6ba238ff/isp_pipeline.py#L150-L164)
-to extract edge map. In fast-openISP, however, we use the subtraction between the original and the gaussian filtered
-Y-channel as the edge estimation, which reduces the artifact when the enhancement gain is large.
-
-### BCC (brightness & contrast control)
-
-The official openISP enhances the image contrast by pixel-wise enlarging the difference between pixel values and a
-constant integer (128). In fast-openISP, we use the median value of the whole frame instead of a constant.
-
-
-# Parameters
-
-Tunable parameters in fast-openISP are differently named from those in openISP, but they are all self-explained,
-and no doubt you can easily tell the counterparts in two repos. All parameters are managed in a yaml 
-in [`./configs`](./configs), one file per camera.
-
-# Demo
-
-|Bayer Input|
-|:-------------------------:|
-|<img src='assets/dpc.jpg' width='580'>| 
-
-
-|CFA Interpolation|
-|:-------------------------:|
-|<img src='assets/cfa.jpg' width='580'>| 
-
-
-|Color Correction|
-|:-------------------------:|
-|<img src='assets/ccm.jpg' width='580'>| 
-
-
-|Gamma Correction|
-|:-------------------------:|
-|<img src='assets/gac.jpg' width='580'>| 
-
-
-|Non-local Means & Bilateral Filter|
-|:-------------------------:|
-|<img src='assets/bnf.jpg' width='580'>| 
-
-
-|Contrast Enhancement|
-|:-------------------------:|
-|<img src='assets/ceh.jpg' width='580'>| 
-
-
-|Edge Enhancement|
-|:-------------------------:|
-|<img src='assets/eeh.jpg' width='580'>| 
-
-
-|Hue & Saturation Control|
-|:-------------------------:|
-|<img src='assets/hsc.jpg' width='580'>| 
-
-
-|Brightness & Contrast Control|
-|:-------------------------:|
-|<img src='assets/bcc.jpg' width='580'>| 
-
-
-# License
-
-Copyright 2021 Qiu Jueqin.
-
-Licensed under [MIT](http://opensource.org/licenses/MIT).
+| ![1_1_color](FGP/fgp_1_1.png) | ![1_1_grayscale](FGP/fgp_grayscale_1_1.png) |
+|:---:|:---:|
+| ![2_1_color](FGP/fgp_2_1.png) | ![2_1_grayscale](FGP/fgp_grayscale_2_1.png) |
+The first row are outputs from 1_1.raw, while the second, 2_1.raw.

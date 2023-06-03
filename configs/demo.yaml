@@ -1,0 +1,109 @@
+module_enable_status:                 # do NOT modify modules order
+  dpc: True
+  blc: True
+  aaf: True
+  fgp: True
+  awb: True
+  cnf: True
+  cfa: True
+  ccm: True
+  gac: True
+  csc: True
+  nlm: False
+  bnf: False
+  ceh: False
+  eeh: True
+  fcs: False
+  hsc: True
+  bcc: True
+  scl: False
+
+hardware:
+  raw_width: 2592
+  raw_height: 1944
+  raw_bit_depth: 10
+  bayer_pattern: bggr
+
+
+# -------------------- Module Algorithms Parameters --------------------
+
+dpc:
+  diff_threshold: 30
+
+blc:
+  bl_r:  0                   # a subtractive value, not additive!
+  bl_gr: 0
+  bl_gb: 0
+  bl_b: 0
+  alpha: 0                            # x1024
+  beta: 9                             # x1024
+
+aaf: ~
+
+fgp:
+  r_const: 0.64
+  g_const: 0.4
+  b_const: 0.41
+
+awb:
+  r_gain: &r_gain 2002                # x1024
+  gr_gain: 999                        # x1024
+  gb_gain: 999                       # x1024
+  b_gain: &b_gain 1555                # x1024
+
+cnf:
+  diff_threshold: 5
+  r_gain: *r_gain                     # x1024
+  b_gain: *b_gain                     # x1024
+
+rgbir: ~
+
+cfa:
+  mode: malvar
+
+ccm:
+  ccm:
+    - [ 1024, 0, 0, 0 ]
+    - [ 0, 1024, 0, 0 ]
+    - [ 0, 0, 1024, 0 ]
+
+gac:
+  gain: 256                           # x256
+  gamma: 0.7
+
+csc: ~
+
+nlm:
+  search_window_size: 9
+  patch_size: 3
+  h: 10                               # larger value has stronger smoothing effect
+
+bnf:
+  intensity_sigma: 0.8                # larger value has stronger smoothing effect
+  spatial_sigma: 0.8                  # larger value has stronger smoothing effect
+
+ceh:
+  tiles: [4, 6]
+  clip_limit: 0.01
+
+eeh:
+  edge_gain: 256                      # x256
+  flat_threshold: 3                   # delta <= flat_threshold: set delta to 0
+  edge_threshold: 9                   # delta > edge_threshold: increase delta by edge_gain
+  delta_threshold: 64
+
+fcs:
+  delta_min: 8
+  delta_max: 32
+
+hsc:
+  hue_offset: 9                       # in degree
+  saturation_gain: 512                # x256
+
+bcc:
+  brightness_offset: 9
+  contrast_gain: 512                 # x256
+
+scl:
+  width: 1920
+  height: 1080
