@@ -30,7 +30,7 @@ After, use the four arrays to calculate the average of the nonzero neigbors and 
 ```
 
 ##### Handling IR with no R neigbours
-Due to the pattern it follows, there is only on IR without a red neighbour. So, the value for that particular position is set to be the value of the original IR.
+Due to the pattern it follows, there is only one IR without a red neighbour. So, the value for that particular position is set to be the value of the original IR.
 ```python
     f[f == 0] = source[-1, -1]
 ```
