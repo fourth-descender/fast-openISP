@@ -6,7 +6,7 @@
 >"Special thanks to the creator of the fast-openISP, [Qiu Jueqin](https://github.com/QiuJueqin). The library served as the foundation for the module enabling the handling of RGB-IR image data."
 
 ## FGP module
-The module references this paper [here](**[https://ieeexplore.ieee.org/document/10043554](https://ieeexplore.ieee.org/document/10043554 "https://ieeexplore.ieee.org/document/10043554")**). It changes the RGB-IR image data into a format compatible with the existing fast-openISP pipeline and lets it handle the rest. Additionaly, it also performs guided-upsampling on the IR values to generate a grayscale image.
+The module references this paper [here](https://ieeexplore.ieee.org/document/10043554). It changes the RGB-IR image data into a format compatible with the existing fast-openISP pipeline and lets it handle the rest. Additionaly, it also performs guided-upsampling on the IR values to generate a grayscale image.
 
 ### BGGR Conversion
 The transformation consists of three steps. First, it replaces all the IR values with the average of the nonzero surrounding red values, provided that the surrounding reds in question are one unit away; otherwise, the IR value remains unchanged. Next, it replaces all the R values with the average of the nonzero blues that are two units away. Finally, it retrieves the original IR values, performs upsampling, and subtracts them from the modified image to balance it.
